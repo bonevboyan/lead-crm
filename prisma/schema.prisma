@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Business {
+  id            String      @id @default(cuid())
+  placeId       String      @unique
+  name          String
+  category      String
+  phone         String?
+  website       String?
+  mapsUrl       String
+  reviewCount   Int
+  isWeakWebsite Boolean     @default(false)
+  isRejected    Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  crmStatus     CRMStatus?
+}
+
+model CRMStatus {
+  id          String    @id @default(cuid())
+  businessId  String    @unique
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  status      Status    @default(PENDING)
+  notes       String?
+  updatedAt   DateTime  @updatedAt
+}
+
+enum Status {
+  PENDING
+  CALLED
+  INTERESTED
+  CALLBACK
+  NOT_INTERESTED
+}
