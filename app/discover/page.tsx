@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
-import AuthLayout from '@/components/AuthLayout';
+import { checkWeakWebsite } from '@/lib/cities';
 
 interface Business {
+  id: string;
   placeId: string;
   name: string;
   category: string;
@@ -12,9 +13,8 @@ interface Business {
   website: string | null;
   mapsUrl: string;
   reviewCount: number;
+  rating: number | null;
   isWeakWebsite: boolean;
-  weakFlags: string[];
-  isOpen: boolean | null;
 }
 
 export default function DiscoverPage() {
@@ -22,26 +22,44 @@ export default function DiscoverPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('searchResults');
-    if (saved) {
-      setBusinesses(JSON.parse(saved));
-    }
-    setFetching(false);
+    fetch('/api/businesses?queue=true')
+      .then((r) => r.json())
+      .then((data) => setBusinesses(data.businesses || []))
+      .catch(() => {})
+      .finally(() => setFetching(false));
   }, []);
+
+  async function handleRejectAll() {
+    const remaining = businesses.length - currentIndex;
+    if (!confirm(`Reject all ${remaining} remaining businesses?`)) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/businesses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject-all' }),
+      });
+
+      if (response.ok) {
+        setBusinesses([]);
+        setCurrentIndex(0);
+      }
+    } catch {
+      setError('Network error');
+      setTimeout(() => setError(''), 2000);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleAction(action: 'approve' | 'reject') {
     if (currentIndex >= businesses.length) return;
 
     const business = businesses[currentIndex];
-    
-    if (!business.placeId) {
-      setMessage('Error: Missing placeId');
-      return;
-    }
-    
     setLoading(true);
 
     try {
@@ -56,16 +74,14 @@ export default function DiscoverPage() {
       });
 
       if (response.ok) {
-        setMessage(action === 'approve' ? 'Saved!' : 'Rejected');
-        setTimeout(() => setMessage(''), 1000);
         setCurrentIndex((prev) => prev + 1);
       } else {
-        setMessage('Error');
-        setTimeout(() => setMessage(''), 2000);
+        setError('Error');
+        setTimeout(() => setError(''), 2000);
       }
     } catch {
-      setMessage('Network error');
-      setTimeout(() => setMessage(''), 2000);
+      setError('Network error');
+      setTimeout(() => setError(''), 2000);
     } finally {
       setLoading(false);
     }
@@ -75,170 +91,223 @@ export default function DiscoverPage() {
 
   if (fetching) {
     return (
-      <AuthLayout>
+      <>
         <Navigation />
-        <main className="max-w-2xl mx-auto px-4 py-8">
-          <div className="flex items-center justify-center h-96">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <main className="max-w-xl mx-auto px-5 py-10">
+          <div className="flex items-center justify-center h-80">
+            <div className="spinner" style={{ color: 'var(--accent)' }} />
           </div>
         </main>
-      </AuthLayout>
+      </>
     );
   }
 
   if (businesses.length === 0) {
     return (
-      <AuthLayout>
+      <>
         <Navigation />
-        <main className="max-w-2xl mx-auto px-4 py-8">
-          <div className="text-center py-16">
-            <p className="text-gray-500 mb-4">No businesses to review.</p>
-            <a href="/setup" className="text-blue-600 hover:underline">
-              Run a search first
-            </a>
+        <main className="max-w-xl mx-auto px-5 py-10">
+          <div className="text-center py-20">
+            <div
+              className="w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center"
+              style={{ background: 'var(--border-light)' }}
+            >
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--text-muted)' }}>
+                <path d="M2 5l6-3 6 3-6 3-6-3z" strokeLinejoin="round" />
+                <path d="M2 8l6 3 6-3" />
+                <path d="M2 11l6 3 6-3" />
+              </svg>
+            </div>
+            <p className="font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Queue is empty</p>
+            <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>Run a search to discover new leads</p>
+            <a href="/setup" className="btn-primary inline-block">Go to Search</a>
           </div>
         </main>
-      </AuthLayout>
+      </>
     );
   }
 
   if (currentIndex >= businesses.length) {
     return (
-      <AuthLayout>
+      <>
         <Navigation />
-        <main className="max-w-2xl mx-auto px-4 py-8">
-          <div className="text-center py-16">
-            <p className="text-gray-500 mb-4">All caught up!</p>
-            <a href="/setup" className="text-blue-600 hover:underline">
-              Search for more
-            </a>
+        <main className="max-w-xl mx-auto px-5 py-10">
+          <div className="text-center py-20">
+            <div
+              className="w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center"
+              style={{ background: 'var(--success-bg)' }}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ color: 'var(--success)' }}>
+                <polyline points="4 10 8 14 16 6" />
+              </svg>
+            </div>
+            <p className="font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>All caught up</p>
+            <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>You&apos;ve reviewed everything in the queue</p>
+            <a href="/setup" className="btn-primary inline-block">Search for more</a>
           </div>
         </main>
-      </AuthLayout>
+      </>
     );
   }
 
+  const { flags } = checkWeakWebsite(currentBusiness.website);
+  const progress = ((currentIndex) / businesses.length) * 100;
+
   return (
-    <AuthLayout>
+    <>
       <Navigation />
-      <main className="max-w-2xl mx-auto px-4 py-8">
-        <div className="mb-4 flex items-center justify-between">
-          <span className="text-sm text-gray-500">
-            {currentIndex + 1} / {businesses.length}
-          </span>
-          {message && (
-            <span className={`text-sm font-medium ${message === 'Saved!' ? 'text-green-600' : message === 'Rejected' ? 'text-red-600' : 'text-gray-600'}`}>
-              {message}
+      <main className="max-w-xl mx-auto px-4 sm:px-5 py-8 sm:py-10">
+        {/* Header */}
+        <div className="mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="mono text-sm" style={{ color: 'var(--text-muted)' }}>
+              {currentIndex + 1}
+              <span style={{ color: 'var(--border)' }}> / </span>
+              {businesses.length}
             </span>
-          )}
+            {error && (
+              <span
+                className="text-xs font-semibold px-2.5 py-1 rounded-lg"
+                style={{ background: 'var(--danger-bg)', color: 'var(--danger)' }}
+              >
+                {error}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handleRejectAll}
+            disabled={loading}
+            className="text-xs font-semibold disabled:opacity-50"
+            style={{ color: 'var(--danger)' }}
+          >
+            Reject all remaining
+          </button>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200">
-          {/* Fixed height content area */}
-          <div className="p-6 h-[320px] overflow-y-auto">
-            <div className="flex items-start justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 leading-tight">{currentBusiness.name}</h2>
-              {currentBusiness.isOpen !== null && (
-                <span className={`px-2 py-1 rounded text-xs font-medium ${currentBusiness.isOpen ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                  {currentBusiness.isOpen ? 'Open' : 'Closed'}
-                </span>
+        {/* Progress bar */}
+        <div className="h-1 rounded-full mb-5 overflow-hidden" style={{ background: 'var(--border-light)' }}>
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${progress}%`, background: 'var(--accent)' }}
+          />
+        </div>
+
+        {/* Card */}
+        <div className="card overflow-hidden">
+          <div className="p-4 sm:p-6 h-[280px] sm:h-[320px] overflow-y-auto">
+            <h2 className="text-xl font-bold tracking-tight mb-5" style={{ color: 'var(--text)' }}>
+              {currentBusiness.name}
+            </h2>
+
+            <div className="space-y-3">
+              <DetailRow label="Category">
+                <span className="capitalize">{currentBusiness.category.replace(/_/g, ' ')}</span>
+              </DetailRow>
+
+              <DetailRow label="Reviews">
+                <span className="mono">{currentBusiness.reviewCount}</span>
+              </DetailRow>
+
+              {currentBusiness.rating && (
+                <DetailRow label="Rating">
+                  <span className="mono">{currentBusiness.rating.toFixed(1)}</span>
+                  <span style={{ color: 'var(--text-muted)' }}> / 5</span>
+                </DetailRow>
               )}
-            </div>
-
-            <div className="space-y-2 text-sm">
-              <div className="flex">
-                <span className="text-gray-500 w-20 shrink-0">Category</span>
-                <span className="text-gray-900 capitalize">{currentBusiness.category.replace(/_/g, ' ')}</span>
-              </div>
-
-              <div className="flex">
-                <span className="text-gray-500 w-20 shrink-0">Reviews</span>
-                <span className="text-gray-900">{currentBusiness.reviewCount}</span>
-              </div>
 
               {currentBusiness.phone && (
-                <div className="flex">
-                  <span className="text-gray-500 w-20 shrink-0">Phone</span>
-                  <a href={`tel:${currentBusiness.phone}`} className="text-blue-600 hover:underline">
+                <DetailRow label="Phone">
+                  <a href={`tel:${currentBusiness.phone}`} style={{ color: 'var(--accent)' }}>
                     {currentBusiness.phone}
                   </a>
-                </div>
+                </DetailRow>
               )}
 
               {currentBusiness.website && (
-                <div className="flex">
-                  <span className="text-gray-500 w-20 shrink-0">Website</span>
-                  <a href={currentBusiness.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
-                    {currentBusiness.website}
+                <DetailRow label="Website">
+                  <a
+                    href={currentBusiness.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate block"
+                    style={{ color: 'var(--accent)' }}
+                  >
+                    {currentBusiness.website.replace(/^https?:\/\/(www\.)?/, '')}
                   </a>
-                </div>
+                </DetailRow>
               )}
 
-              <div className="flex">
-                <span className="text-gray-500 w-20 shrink-0">Maps</span>
-                <a href={currentBusiness.mapsUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                  View profile
+              <DetailRow label="Maps">
+                <a
+                  href={currentBusiness.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  View on Google Maps
                 </a>
+              </DetailRow>
+            </div>
+
+            {/* Signals */}
+            {(currentBusiness.isWeakWebsite || !currentBusiness.website) && (
+              <div className="mt-5 flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl" style={{ background: 'var(--accent-light)' }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ color: 'var(--accent)', flexShrink: 0 }}>
+                  {!currentBusiness.website ? (
+                    <><circle cx="8" cy="8" r="6.5" /><path d="M8 5v3" /><circle cx="8" cy="11" r="0.5" fill="currentColor" /></>
+                  ) : (
+                    <><path d="M8 1.5 L14.5 13 H1.5 Z" strokeLinejoin="round" /><path d="M8 6v3" /><circle cx="8" cy="11.5" r="0.5" fill="currentColor" /></>
+                  )}
+                </svg>
+                <div className="text-sm" style={{ color: 'var(--accent-hover)' }}>
+                  {!currentBusiness.website ? (
+                    <span className="font-semibold">No website — strong lead</span>
+                  ) : (
+                    <>
+                      <span className="font-semibold">Weak website</span>
+                      <span style={{ color: 'var(--text-muted)' }}> — {flags.join(', ')}</span>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-
-            {/* Alerts section */}
-            <div className="mt-4 space-y-2">
-              {currentBusiness.isWeakWebsite && currentBusiness.weakFlags.length > 0 && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded">
-                  <div className="text-sm font-medium text-amber-800 mb-1">Weak website detected</div>
-                  <div className="flex flex-wrap gap-1">
-                    {currentBusiness.weakFlags.map((flag, idx) => (
-                      <span key={idx} className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded">
-                        {flag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {!currentBusiness.website && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                  <div className="text-sm font-medium text-blue-800">No website</div>
-                  <div className="text-sm text-blue-600">Great opportunity</div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* Fixed position buttons */}
-          <div className="p-4 border-t border-gray-200 bg-gray-50">
+          {/* Actions */}
+          <div className="px-4 sm:px-6 py-4" style={{ borderTop: '1px solid var(--border-light)', background: 'var(--surface-hover)' }}>
             <div className="flex gap-3">
               <button
                 onClick={() => handleAction('reject')}
                 disabled={loading}
-                className="flex-1 py-2.5 px-4 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                className="btn-secondary flex-1 flex items-center justify-center"
               >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></span>
-                  </span>
-                ) : (
-                  'Reject'
-                )}
+                {loading ? <span className="spinner" style={{ borderTopColor: 'var(--text-muted)' }} /> : 'Skip'}
               </button>
               <button
                 onClick={() => handleAction('approve')}
                 disabled={loading}
-                className="flex-1 py-2.5 px-4 bg-gray-900 text-white rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                className="btn-primary flex-1 flex items-center justify-center"
               >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></span>
-                  </span>
-                ) : (
-                  'Save to CRM'
-                )}
+                {loading ? <span className="spinner" style={{ borderTopColor: 'var(--bg)' }} /> : 'Save to CRM'}
               </button>
             </div>
           </div>
         </div>
       </main>
-    </AuthLayout>
+    </>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-3 text-sm">
+      <span
+        className="w-20 shrink-0 text-xs font-semibold uppercase"
+        style={{ color: 'var(--text-muted)', letterSpacing: '0.06em' }}
+      >
+        {label}
+      </span>
+      <span style={{ color: 'var(--text)' }}>{children}</span>
+    </div>
   );
 }

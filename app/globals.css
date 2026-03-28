@@ -1,3 +1,192 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #F6F4F0;
+  --bg-subtle: #EFECE6;
+  --surface: #FFFFFF;
+  --surface-hover: #FAFAF8;
+  --surface-raised: #FFFFFF;
+  --border: #E2DED6;
+  --border-light: #EDEAE4;
+  --border-focus: #B8805A;
+
+  --text: #1C1917;
+  --text-secondary: #57534E;
+  --text-muted: #A8A29E;
+
+  --accent: #B8805A;
+  --accent-light: #F3ECE4;
+  --accent-hover: #A06D48;
+  --accent-subtle: #E8D8C8;
+
+  --nav-bg: #1C1917;
+  --nav-text: #A8A29E;
+  --nav-active: #F5F0EB;
+  --nav-hover: rgba(255,255,255,0.06);
+
+  --success: #3D7A50;
+  --success-bg: #ECF5EF;
+  --danger: #C2452D;
+  --danger-bg: #FDF0ED;
+  --info: #2E6B8A;
+  --info-bg: #EBF3F8;
+  --warning: #A07628;
+  --warning-bg: #FBF6EB;
+}
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--bg);
+    color: var(--text);
+    font-feature-settings: 'cv11', 'ss01';
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background-color: var(--accent-subtle);
+    color: var(--text);
+  }
+}
+
+@layer components {
+  .card {
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    box-shadow:
+      0 1px 2px rgba(28, 25, 23, 0.03),
+      0 4px 12px rgba(28, 25, 23, 0.02);
+  }
+
+  .input-field {
+    @apply w-full px-3.5 py-2.5 text-sm;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+
+  .input-field::placeholder {
+    color: var(--text-muted);
+  }
+
+  .btn-primary {
+    @apply py-2.5 px-5 font-semibold text-sm;
+    border-radius: 10px;
+    background: var(--text);
+    color: var(--bg);
+    transition: background 0.15s, transform 0.1s;
+    letter-spacing: -0.01em;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: #2D2926;
+  }
+
+  .btn-primary:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .btn-primary:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply py-2.5 px-5 font-medium text-sm;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--surface-hover);
+    border-color: var(--text-muted);
+  }
+
+  .btn-secondary:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.92em;
+    letter-spacing: -0.02em;
+  }
+
+  .label {
+    @apply block text-xs font-semibold mb-1.5 uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-md;
+  }
+}
+
+@keyframes spin-smooth {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  @apply rounded-full;
+  width: 18px;
+  height: 18px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  animation: spin-smooth 0.6s linear infinite;
+}
+
+/* Subtle noise texture on body */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* Mobile bottom spacing for tab bar */
+@media (max-width: 639px) {
+  main {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom) + 1rem) !important;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
