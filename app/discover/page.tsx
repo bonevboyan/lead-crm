@@ -38,10 +38,30 @@ export default function DiscoverPage() {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/businesses', {
+      const response = await fetch('/api/businesses/queue/reject-all', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'reject-all' }),
+      });
+
+      if (response.ok) {
+        setBusinesses([]);
+        setCurrentIndex(0);
+      }
+    } catch {
+      setError('Network error');
+      setTimeout(() => setError(''), 2000);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleApproveAll() {
+    const remaining = businesses.length - currentIndex;
+    if (!confirm(`Save all ${remaining} remaining businesses to CRM?`)) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/businesses/queue/approve-all', {
+        method: 'POST',
       });
 
       if (response.ok) {
@@ -63,11 +83,10 @@ export default function DiscoverPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/businesses', {
+      const response = await fetch(`/api/businesses/queue/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action,
           placeId: business.placeId,
           business,
         }),
@@ -174,14 +193,24 @@ export default function DiscoverPage() {
               </span>
             )}
           </div>
-          <button
-            onClick={handleRejectAll}
-            disabled={loading}
-            className="text-xs font-semibold disabled:opacity-50"
-            style={{ color: 'var(--danger)' }}
-          >
-            Reject all remaining
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleApproveAll}
+              disabled={loading}
+              className="text-xs font-semibold disabled:opacity-50"
+              style={{ color: 'var(--success)' }}
+            >
+              Save all remaining
+            </button>
+            <button
+              onClick={handleRejectAll}
+              disabled={loading}
+              className="text-xs font-semibold disabled:opacity-50"
+              style={{ color: 'var(--danger)' }}
+            >
+              Reject all remaining
+            </button>
+          </div>
         </div>
 
         {/* Progress bar */}
@@ -264,7 +293,7 @@ export default function DiscoverPage() {
                     <span className="font-semibold">No website — strong lead</span>
                   ) : (
                     <>
-                      <span className="font-semibold">Weak website</span>
+                      <span className="font-semibold">Free hosting</span>
                       <span style={{ color: 'var(--text-muted)' }}> — {flags.join(', ')}</span>
                     </>
                   )}

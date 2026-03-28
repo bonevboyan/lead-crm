@@ -83,10 +83,8 @@ export default function DashboardPage() {
 
   async function restoreBusiness(businessId: string) {
     try {
-      const response = await fetch('/api/businesses', {
+      const response = await fetch(`/api/businesses/${businessId}/restore`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'restore', businessId }),
       });
       if (response.ok) {
         const restored = trashedBusinesses.find((b) => b.id === businessId);
@@ -103,16 +101,60 @@ export default function DashboardPage() {
   async function permanentDelete(businessId: string) {
     if (!confirm('Permanently delete this lead? This cannot be undone.')) return;
     try {
-      const response = await fetch('/api/businesses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'permanent-delete', businessId }),
+      const response = await fetch(`/api/businesses/${businessId}/destroy`, {
+        method: 'DELETE',
       });
       if (response.ok) {
         setTrashedBusinesses((prev) => prev.filter((b) => b.id !== businessId));
       }
     } catch {
       alert('Failed to delete');
+    }
+  }
+
+  async function restoreAll() {
+    if (!confirm(`Restore all ${trashedBusinesses.length} leads back to CRM?`)) return;
+    try {
+      const response = await fetch('/api/businesses/bulk/restore-all', {
+        method: 'POST',
+      });
+      if (response.ok) {
+        setBusinesses((prev) => [
+          ...trashedBusinesses.map((b) => ({ ...b, isRejected: false, crmStatus: { id: '', status: 'PENDING', notes: null } } as Business)),
+          ...prev,
+        ]);
+        setTrashedBusinesses([]);
+      }
+    } catch {
+      alert('Failed to restore');
+    }
+  }
+
+  async function emptyTrash() {
+    if (!confirm(`Permanently delete all ${trashedBusinesses.length} leads in the recycle bin? This cannot be undone.`)) return;
+    try {
+      const response = await fetch('/api/businesses/bulk/empty-trash', {
+        method: 'POST',
+      });
+      if (response.ok) {
+        setTrashedBusinesses([]);
+      }
+    } catch {
+      alert('Failed to empty recycle bin');
+    }
+  }
+
+  async function removeAllLeads() {
+    if (!confirm(`Move all ${businesses.length} leads to recycle bin?`)) return;
+    try {
+      const response = await fetch('/api/businesses/bulk/remove-all', {
+        method: 'POST',
+      });
+      if (response.ok) {
+        setBusinesses([]);
+      }
+    } catch {
+      alert('Failed to remove leads');
     }
   }
 
@@ -133,10 +175,8 @@ export default function DashboardPage() {
     if (!confirm('Remove this lead?')) return;
 
     try {
-      const response = await fetch('/api/businesses', {
+      const response = await fetch(`/api/businesses/${businessId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessId }),
       });
 
       if (response.ok) {
@@ -151,15 +191,10 @@ export default function DashboardPage() {
 
   async function updateStatus(businessId: string, status: string, notes?: string) {
     try {
-      const response = await fetch('/api/businesses', {
-        method: 'POST',
+      const response = await fetch(`/api/businesses/${businessId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update-status',
-          businessId,
-          status,
-          notes,
-        }),
+        body: JSON.stringify({ status, notes }),
       });
 
       if (response.ok) {
@@ -242,18 +277,47 @@ export default function DashboardPage() {
                   : `${filteredBusinesses.length} of ${businesses.length} ${businesses.length === 1 ? 'lead' : 'leads'}`}
               </p>
             </div>
-            <button
-              onClick={() => setShowTrash(!showTrash)}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold shrink-0"
-              style={{
-                color: showTrash ? 'var(--accent-hover)' : 'var(--text-muted)',
-                background: showTrash ? 'var(--accent-light)' : 'var(--surface)',
-                border: `1px solid ${showTrash ? 'var(--accent-subtle)' : 'var(--border)'}`,
-              }}
-            >
-              <RecycleBinIcon />
-              {showTrash ? 'Back to CRM' : 'Recycle Bin'}
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {showTrash && trashedBusinesses.length > 0 && (
+                <>
+                  <button
+                    onClick={restoreAll}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold"
+                    style={{ color: 'var(--success)', background: 'var(--success-bg)' }}
+                  >
+                    Restore all
+                  </button>
+                  <button
+                    onClick={emptyTrash}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold"
+                    style={{ color: 'var(--danger)', background: 'var(--danger-bg)' }}
+                  >
+                    Empty bin
+                  </button>
+                </>
+              )}
+              {!showTrash && businesses.length > 0 && (
+                <button
+                  onClick={removeAllLeads}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold"
+                  style={{ color: 'var(--danger)', background: 'var(--danger-bg)' }}
+                >
+                  Remove all
+                </button>
+              )}
+              <button
+                onClick={() => setShowTrash(!showTrash)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold"
+                style={{
+                  color: showTrash ? 'var(--accent-hover)' : 'var(--text-muted)',
+                  background: showTrash ? 'var(--accent-light)' : 'var(--surface)',
+                  border: `1px solid ${showTrash ? 'var(--accent-subtle)' : 'var(--border)'}`,
+                }}
+              >
+                <RecycleBinIcon />
+                {showTrash ? 'Back to CRM' : 'Recycle Bin'}
+              </button>
+            </div>
           </div>
 
           {/* Filters - hidden in trash view */}
@@ -313,7 +377,7 @@ export default function DashboardPage() {
               >
                 <option value="ALL">All websites</option>
                 <option value="NONE">No website</option>
-                <option value="WEAK">Weak website</option>
+                <option value="WEAK">Free hosting</option>
                 <option value="HAS">Has website</option>
               </select>
             </div>
@@ -441,7 +505,7 @@ export default function DashboardPage() {
                           className="badge shrink-0"
                           style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}
                         >
-                          Weak site
+                          Free hosting
                         </span>
                       )}
                     </div>
